@@ -1,5 +1,5 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Header, HTTPException
+from app.services.github_client import GitHubClient
 from app.services.vector_service import VectorService
 
 MOCK_GITHUB_ISSUES = [
@@ -27,38 +27,40 @@ MOCK_GITHUB_ISSUES = [
 ]
 
 app = FastAPI(title="OSCA Platform API")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 vector_service = VectorService()
 
 @app.get("/")
-def root():
-    return {"status": "online"}
+def read_root():
+    return {"message": "OSCA Platform Backend Engine is running smoothly"}
 
 @app.get("/api/recommendations")
-def get_recommendations(profile_bio: str):
-    if not profile_bio:
-        return {"error": "Missing profile_bio"}
+async def get_recommendations(profile_bio: str, authorization: str = Header(None)):
+    """
+    Takes a developer bio, fetches live issues from GitHub, and uses the 
+    local ML model to score and sort recommendations based on semantic meaning.
+    """
+    token = authorization.split(" ")[1] if authorization and " " in authorization else authorization
+    
+    if token:
+        client = GitHubClient(access_token=token)
+        live_issues = await client.fetch_live_issues(query_label="good-first-issue")
+    else:
+        live_issues = []
 
-    user_embedding = vector_service.get_embedding(profile_bio)
-    ranked_issues = []
-    
-    for issue in MOCK_GITHUB_ISSUES:
-        issue_text = f"{issue['title']} {issue['description']}"
-        issue_embedding = vector_service.get_embedding(issue_text)
-        similarity_score = vector_service.calculate_similarity(user_embedding, issue_embedding)
+    if not live_issues:
+        live_issues = MOCK_GITHUB_ISSUES
+
+    scored_issues = []
+    for issue in live_issues:
+        score = vector_service.calculate_similarity(
+            vector_service.get_embedding(profile_bio),
+            vector_service.get_embedding(f"{issue['title']} {issue['description']}")
+        )
         
-        ranked_issues.append({
-            **issue,
-            "match_score": round(similarity_score * 100, 2)
-        })
-    
-    ranked_issues.sort(key=lambda x: x["match_score"], reverse=True)
-    return {"recommendations": ranked_issues}
+        issue_copy = issue.copy()
+        issue_copy["match_score"] = round(score * 100, 2)
+        scored_issues.append(issue_copy)
+
+    scored_issues.sort(key=lambda x: x["match_score"], reverse=True)
+
+    return {"recommendations": scored_issues}
