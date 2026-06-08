@@ -33,3 +33,45 @@ class GitHubClient:
             if response.status_code != 200:
                 return []
             return response.json()
+
+    async def fetch_live_issues(self, query_label: str = "good-first-issue") -> list:
+        """
+        Queries the global GitHub search index for live open issues matching 
+        curated accessibility tags (e.g., 'good-first-issue', 'help-wanted').
+        """
+        async with httpx.AsyncClient() as client:
+            query = f"is:issue is:open label:{query_label}"
+            params = {
+                "q": query,
+                "per_page": 20,  
+                "sort": "created",
+                "order": "desc"
+            }
+            
+            try:
+                response = await client.get(
+                    f"{self.base_url}/search/issues", 
+                    headers=self.headers, 
+                    params=params,
+                    timeout=10.0
+                )
+                
+                if response.status_code != 200:
+                    return []
+                
+                search_results = response.json()
+                items = search_results.get("items", [])
+                
+                formatted_issues = []
+                for index, item in enumerate(items):
+                    formatted_issues.append({
+                        "id": item.get("id", index),
+                        "title": item.get("title", "No Title Provided"),
+                        "description": item.get("body", "No description provided.")[:300], 
+                        "labels": [label.get("name") for label in item.get("labels", [])],
+                        "html_url": item.get("html_url", "")
+                    })
+                return formatted_issues
+                
+            except httpx.HTTPError:
+                return []
