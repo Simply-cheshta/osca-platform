@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Header, HTTPException
+from typing import Optional
 from app.services.github_client import GitHubClient
 from app.services.vector_service import VectorService
 
@@ -34,10 +35,11 @@ def read_root():
     return {"message": "OSCA Platform Backend Engine is running smoothly"}
 
 @app.get("/api/recommendations")
-async def get_recommendations(profile_bio: str, authorization: str = Header(None)):
+async def get_recommendations(profile_bio: str, language: Optional[str] = None, authorization: str = Header(None)):
     """
     Takes a developer bio, fetches live issues from GitHub, and uses the 
     local ML model to score and sort recommendations based on semantic meaning.
+    Optional: Filters incoming issues by matching language tags.
     """
     token = authorization.split(" ")[1] if authorization and " " in authorization else authorization
     
@@ -49,6 +51,18 @@ async def get_recommendations(profile_bio: str, authorization: str = Header(None
 
     if not live_issues:
         live_issues = MOCK_GITHUB_ISSUES
+
+    if language:
+        target_lang = language.lower()
+        filtered_pool = []
+        for issue in live_issues:
+            labels_text = " ".join([l.lower() for l in issue.get("labels", [])])
+            combined_text = f"{issue['title']} {issue['description']} {labels_text}".lower()
+            
+            if target_lang in combined_text:
+                filtered_pool.append(issue)
+        live_issues = filtered_pool
+
 
     scored_issues = []
     for issue in live_issues:
