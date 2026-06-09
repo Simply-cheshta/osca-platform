@@ -110,3 +110,23 @@ async def create_bookmark(bookmark: BookmarkCreate, db: Session = Depends(get_db
     db.refresh(db_bookmark)
     
     return {"message": "Issue successfully bookmarked!", "bookmark_id": db_bookmark.id}
+@app.get("/api/bookmarks")
+async def get_bookmarks(db: Session = Depends(get_db)):
+    """
+    Queries the local SQLite database and returns a complete list of 
+    all open-source issues saved by the contributor.
+    """
+    bookmarks = db.query(BookmarkedIssue).all()
+    
+    formatted_bookmarks = []
+    for item in bookmarks:
+        formatted_bookmarks.append({
+            "id": item.id,
+            "github_issue_id": item.github_issue_id,
+            "title": item.title,
+            "description": item.description,
+            "labels": item.labels.split(",") if item.labels else [],
+            "html_url": item.html_url
+        })
+        
+    return {"bookmarked_issues": formatted_bookmarks}
