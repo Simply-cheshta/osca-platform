@@ -1,9 +1,15 @@
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Depends
 from typing import Optional
+from sqlalchemy.orm import Session
+
+from app.core.database import engine, Base, get_db
+import app.models.issue as issue_model
+from app.models.issue import BookmarkedIssue
+from app.schemas.bookmark import BookmarkCreate
+
 from app.services.github_client import GitHubClient
 from app.services.vector_service import VectorService
-from app.core.database import engine, Base
-import app.models.issue as issue_model
+
 Base.metadata.create_all(bind=engine)
 
 MOCK_GITHUB_ISSUES = [
@@ -66,7 +72,6 @@ async def get_recommendations(profile_bio: str, language: Optional[str] = None, 
                 filtered_pool.append(issue)
         live_issues = filtered_pool
 
-
     scored_issues = []
     for issue in live_issues:
         score = vector_service.calculate_similarity(
@@ -81,3 +86,27 @@ async def get_recommendations(profile_bio: str, language: Optional[str] = None, 
     scored_issues.sort(key=lambda x: x["match_score"], reverse=True)
 
     return {"recommendations": scored_issues}
+
+@app.post("/api/bookmarks", status_code=201)
+async def create_bookmark(bookmark: BookmarkCreate, db: Session = Depends(get_db)):
+    """
+    Saves an open-source issue to the local SQLite database so the developer 
+    can reference or work on it later.
+    """
+    existing = db.query(BookmarkedIssue).filter(BookmarkedIssue.github_issue_id == bookmark.github_issue_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="This issue is already bookmarked.")
+
+    db_bookmark = BookmarkedIssue(
+        github_issue_id=bookmark.github_issue_id,
+        title=bookmark.title,
+        description=bookmark.description,
+        labels=bookmark.labels,
+        html_url=bookmark.html_url
+    )
+    
+    db.add(db_bookmark)
+    db.commit()
+    db.refresh(db_bookmark)
+    
+    return {"message": "Issue successfully bookmarked!", "bookmark_id": db_bookmark.id}
