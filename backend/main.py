@@ -2,6 +2,9 @@ from fastapi import FastAPI, Header, HTTPException
 from typing import Optional
 from app.services.github_client import GitHubClient
 from app.services.vector_service import VectorService
+from app.core.database import engine, Base
+import app.models.issue as issue_model
+Base.metadata.create_all(bind=engine)
 
 MOCK_GITHUB_ISSUES = [
     {
