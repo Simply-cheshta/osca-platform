@@ -5,3 +5,4 @@ try:
     print("\n Success! Model downloaded and stored locally on your machine.")
 except Exception as e:
     print(f"\n Network failed with error: {e}")
+    

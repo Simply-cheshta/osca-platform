@@ -3,151 +3,494 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitMatch - Open Source Contribution Assistant</title>
+    <title>OSCA — Open Source Contribution Agent</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         .navy-bg { background-color: #0f172a; }
         .accent-blue { color: #38bdf8; }
         .card-navy { background-color: #1e293b; }
+        .difficulty-easy { background: #065f46; color: #6ee7b7; }
+        .difficulty-medium { background: #78350f; color: #fcd34d; }
+        .difficulty-hard { background: #7f1d1d; color: #fca5a5; }
     </style>
 </head>
 <body class="bg-gray-900 text-slate-100 min-h-screen font-sans">
 
     <header class="navy-bg border-b border-slate-800 shadow-xl sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center space-x-3">
-                <div class="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-white shadow-lg shadow-sky-500/20">G</div>
-                <h1 class="text-xl font-extrabold tracking-tight">Git<span class="accent-blue font-semibold">Match</span></h1>
+                <div class="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-white shadow-lg shadow-sky-500/20">O</div>
+                <h1 class="text-xl font-extrabold tracking-tight">
+                    <span class="accent-blue">OSCA</span>
+                    <span class="text-xs block md:inline md:ml-3 font-sans font-normal text-slate-400 tracking-normal border-l-0 md:border-l md:pl-3 border-slate-700">
+                        Open Source Contribution Agent
+                    </span>
+                </h1>
             </div>
-            <span class="text-xs bg-slate-800 border border-slate-700 px-3 py-1 rounded-full text-slate-400 font-mono flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Vector Core Online
-            </span>
+            <div class="flex items-center gap-3">
+                <span id="statusBadge" class="text-xs bg-slate-800 border border-slate-700 px-3 py-1 rounded-full text-slate-400 font-mono flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Online
+                </span>
+                <div id="authSection">
+                    <button onclick="loginWithGitHub()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-2 rounded-lg font-semibold transition-colors cursor-pointer">
+                        Login with GitHub
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
-    <main class="max-w-4xl mx-auto px-4 py-10">
-        <section class="card-navy border border-slate-800 rounded-2xl p-6 shadow-2xl mb-10 transition-all duration-300 hover:border-slate-700">
-            <h2 class="text-lg font-bold mb-2 flex items-center gap-2">
-                🧠 Configure Matcher Parameters
-            </h2>
-            <p class="text-slate-400 text-sm mb-4">Paste your developer biography or skillset list below. Our vectorized NLP engine will compute real-time similarity alignment scores against live issue fields.</p>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Developer Bio / Skills Profile</label>
-                    <textarea id="profileBio" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors" placeholder="e.g., I am a frontend developer who loves building responsive UIs with React and styling with Tailwind CSS..."></textarea>
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Profile / Auth panel -->
+        <section id="profilePanel" class="hidden card-navy border border-slate-800 rounded-2xl p-6 mb-8">
+            <div class="flex flex-col md:flex-row gap-6 items-start">
+                <img id="avatarImg" src="" alt="" class="w-16 h-16 rounded-full border-2 border-sky-500/50">
+                <div class="flex-1">
+                    <h2 id="usernameDisplay" class="text-lg font-bold"></h2>
+                    <p id="bioDisplay" class="text-slate-400 text-sm mt-1"></p>
+                    <div id="metricsGrid" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4"></div>
+                    <div id="languagesTags" class="flex flex-wrap gap-2 mt-3"></div>
                 </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="flex flex-col gap-2">
+                    <button onclick="syncProfile()" class="text-xs bg-sky-600 hover:bg-sky-500 px-4 py-2 rounded-lg font-semibold cursor-pointer">Sync Profile</button>
+                    <button onclick="runAgentWorkflow()" class="text-xs bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg font-semibold cursor-pointer">Run Agent Workflow</button>
+                    <button onclick="logout()" class="text-xs text-slate-400 hover:text-slate-200 cursor-pointer">Logout</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabs -->
+        <nav class="flex gap-2 mb-6 border-b border-slate-800 pb-2">
+            <button onclick="showTab('recommendations')" id="tab-recommendations" class="tab-btn text-sm px-4 py-2 rounded-lg bg-sky-600/20 text-sky-400 font-semibold cursor-pointer">Recommendations</button>
+            <button onclick="showTab('bookmarks')" id="tab-bookmarks" class="tab-btn text-sm px-4 py-2 rounded-lg text-slate-400 hover:bg-slate-800 cursor-pointer">Bookmarks</button>
+            <button onclick="showTab('learning')" id="tab-learning" class="tab-btn text-sm px-4 py-2 rounded-lg text-slate-400 hover:bg-slate-800 cursor-pointer">Learning</button>
+            <button onclick="showTab('pr-review')" id="tab-pr-review" class="tab-btn text-sm px-4 py-2 rounded-lg text-slate-400 hover:bg-slate-800 cursor-pointer">PR Review</button>
+            <button onclick="showTab('analytics')" id="tab-analytics" class="tab-btn text-sm px-4 py-2 rounded-lg text-slate-400 hover:bg-slate-800 cursor-pointer">Analytics</button>
+        </nav>
+
+        <!-- Recommendations Tab -->
+        <div id="panel-recommendations">
+            <section class="card-navy border border-slate-800 rounded-2xl p-6 mb-8">
+                <h2 class="text-lg font-bold mb-2">Skill-Issue Matching</h2>
+                <p class="text-slate-400 text-sm mb-4">Sentence Transformers embeddings + cosine similarity. Login with GitHub to auto-analyze your profile, or enter a manual bio.</p>
+                <div class="space-y-4">
                     <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Filter by Language Tag (Optional)</label>
-                        <input id="languageFilter" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-colors" placeholder="e.g., react, backend, python">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Developer Bio (optional if logged in)</label>
+                        <textarea id="profileBio" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500" placeholder="e.g., Frontend dev with React, TypeScript, and Tailwind CSS experience..."></textarea>
                     </div>
-                    <div class="flex items-end">
-                        <button id="matchBtn" onclick="fetchRecommendations()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-sky-600/20 transition-all active:scale-[0.98] cursor-pointer">
-                            Generate Personalized Recommendations →
-                        </button>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Language Filter (optional)</label>
+                            <input id="languageFilter" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-sky-500" placeholder="e.g., python, react">
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="fetchRecommendations()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer">
+                                Get Recommendations →
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <section>
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-extrabold tracking-tight">Scored Recommendations Feed</h3>
-                <span id="issueCount" class="text-sm text-slate-400 bg-slate-800 px-3 py-1 rounded-md border border-slate-700">0 Issues Ranked</span>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-extrabold">Recommended Issues</h3>
+                <span id="issueCount" class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-md border border-slate-700 font-mono">0 issues</span>
             </div>
-
-            <div id="loader" class="hidden text-center py-12">
+            <div id="loader" class="hidden text-center py-12 card-navy border border-slate-800 rounded-2xl mb-4">
                 <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-700 border-t-sky-500 mb-2"></div>
-                <p class="text-slate-400 text-sm font-mono">Running vector operations matrix loops...</p>
+                <p class="text-slate-400 text-xs font-mono">Computing embeddings and ranking issues...</p>
             </div>
-
             <div id="recommendationsGrid" class="space-y-4">
-                <div class="text-center py-12 card-navy border border-dashed border-slate-800 rounded-2xl text-slate-500">
-                    Enter your developer biography profile above to fire up matching results.
+                <div class="text-center py-12 card-navy border border-dashed border-slate-800 rounded-2xl text-slate-500 text-sm">
+                    Click "Get Recommendations" or run the Agent Workflow after logging in.
                 </div>
             </div>
-        </section>
+        </div>
+
+        <!-- Bookmarks Tab -->
+        <div id="panel-bookmarks" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-extrabold">Saved Bookmarks</h3>
+                <span id="bookmarkCount" class="text-xs text-amber-400 bg-amber-950/20 px-3 py-1 rounded-md border border-amber-900/40 font-mono">0 saved</span>
+            </div>
+            <div id="bookmarksDeck" class="space-y-4"></div>
+        </div>
+
+        <!-- Learning Tab -->
+        <div id="panel-learning" class="hidden">
+            <h3 class="text-xl font-extrabold mb-4">Learning Recommendations</h3>
+            <p class="text-slate-400 text-sm mb-4">Run the Agent Workflow while logged in to detect skill gaps and get resource suggestions.</p>
+            <div id="learningGrid" class="space-y-3">
+                <div class="card-navy border border-dashed border-slate-800 rounded-xl p-6 text-slate-500 text-sm text-center">No learning gaps detected yet.</div>
+            </div>
+        </div>
+
+        <!-- PR Review Tab -->
+        <div id="panel-pr-review" class="hidden">
+            <section class="card-navy border border-slate-800 rounded-2xl p-6">
+                <h3 class="text-lg font-bold mb-2">PR Review Agent</h3>
+                <p class="text-slate-400 text-sm mb-4">Paste a diff and get AI-powered feedback. Requires login.</p>
+                <input id="prIssueTitle" type="text" placeholder="Issue title" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 mb-3 text-slate-200">
+                <textarea id="prDiff" rows="8" placeholder="Paste your git diff here..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 mb-3 text-slate-200 font-mono text-xs"></textarea>
+                <button onclick="submitPRReview()" class="bg-violet-600 hover:bg-violet-500 px-6 py-2 rounded-xl font-semibold cursor-pointer">Review PR</button>
+                <div id="prFeedback" class="mt-4 hidden card-navy border border-slate-700 rounded-xl p-4 text-sm text-slate-300 whitespace-pre-wrap"></div>
+            </section>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="panel-analytics" class="hidden">
+            <h3 class="text-xl font-extrabold mb-4">Dashboard Analytics</h3>
+            <div id="analyticsContent" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="card-navy border border-slate-800 rounded-xl p-5 text-center text-slate-500 text-sm">Login to view analytics.</div>
+            </div>
+        </div>
     </main>
 
     <script>
+        const API = 'http://127.0.0.1:8000';
+        let authToken = localStorage.getItem('osca_token');
+        let lastLearningResources = [];
+        let currentIssues = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('token');
+            if (token) {
+                localStorage.setItem('osca_token', token);
+                authToken = token;
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+            updateAuthUI();
+            fetchBookmarks();
+            checkHealth();
+        });
+
+        function authHeaders() {
+            const h = { 'Content-Type': 'application/json' };
+            if (authToken) h['Authorization'] = `Bearer ${authToken}`;
+            return h;
+        }
+
+        async function checkHealth() {
+            try {
+                const res = await fetch(`${API}/api/v1/health`);
+                const data = await res.json();
+                const badge = document.getElementById('statusBadge');
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Online`;
+            } catch { /* backend offline */ }
+        }
+
+        function loginWithGitHub() {
+            window.location.href = `${API}/api/v1/auth/login`;
+        }
+
+        function logout() {
+            localStorage.removeItem('osca_token');
+            authToken = null;
+            updateAuthUI();
+        }
+
+        async function updateAuthUI() {
+            const authSection = document.getElementById('authSection');
+            const profilePanel = document.getElementById('profilePanel');
+
+            if (!authToken) {
+                authSection.innerHTML = `<button onclick="loginWithGitHub()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-2 rounded-lg font-semibold cursor-pointer">Login with GitHub</button>`;
+                profilePanel.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/api/v1/auth/me`, { headers: authHeaders() });
+                if (!res.ok) throw new Error();
+                const user = await res.json();
+                authSection.innerHTML = `<span class="text-xs text-slate-300">@${user.github_username}</span>`;
+                profilePanel.classList.remove('hidden');
+                document.getElementById('usernameDisplay').textContent = `@${user.github_username}`;
+                document.getElementById('bioDisplay').textContent = user.bio || 'No bio set on GitHub.';
+                if (user.avatar_url) document.getElementById('avatarImg').src = user.avatar_url;
+                await loadCachedProfile();
+            } catch {
+                logout();
+            }
+        }
+
+        async function loadCachedProfile() {
+            try {
+                const res = await fetch(`${API}/api/v1/profile`, { headers: authHeaders() });
+                if (!res.ok) return;
+                const data = await res.json();
+                renderProfileMetrics(data);
+            } catch { /* no cached profile yet */ }
+        }
+
+        async function loadProfileMetrics() {
+            try {
+                const res = await fetch(`${API}/api/v1/profile/analyze`, { headers: authHeaders() });
+                if (!res.ok) throw new Error('Sync failed');
+                const data = await res.json();
+                renderProfileMetrics(data);
+                alert('Profile synced from GitHub!');
+            } catch {
+                alert('Could not sync profile. Try logging in again.');
+            }
+        }
+
+        function renderProfileMetrics(data) {
+            const m = data.metrics;
+            document.getElementById('metricsGrid').innerHTML = `
+                <div class="bg-slate-900/50 rounded-lg p-3 text-center"><div class="text-lg font-bold text-sky-400">${m.frontend_score}</div><div class="text-[10px] text-slate-500 uppercase">Frontend</div></div>
+                <div class="bg-slate-900/50 rounded-lg p-3 text-center"><div class="text-lg font-bold text-emerald-400">${m.backend_score}</div><div class="text-[10px] text-slate-500 uppercase">Backend</div></div>
+                <div class="bg-slate-900/50 rounded-lg p-3 text-center"><div class="text-lg font-bold text-violet-400">${m.dsa_score}</div><div class="text-[10px] text-slate-500 uppercase">DSA</div></div>
+                <div class="bg-slate-900/50 rounded-lg p-3 text-center"><div class="text-lg font-bold text-amber-400">${m.open_source_readiness}</div><div class="text-[10px] text-slate-500 uppercase">OS Ready</div></div>`;
+            document.getElementById('languagesTags').innerHTML = (data.top_languages || []).map(l =>
+                `<span class="text-[10px] bg-slate-800 border border-slate-700 px-2 py-1 rounded-full">${l}</span>`
+            ).join('');
+        }
+
+        async function syncProfile() {
+            await loadProfileMetrics();
+        }
+
+        async function runAgentWorkflow() {
+            if (!authToken) { alert('Login required'); return; }
+            const loader = document.getElementById('loader');
+            const grid = document.getElementById('recommendationsGrid');
+            loader.classList.remove('hidden');
+            grid.innerHTML = '';
+            showTab('recommendations');
+
+            try {
+                const res = await fetch(`${API}/api/v1/agents/match`, { method: 'POST', headers: authHeaders() });
+                if (!res.ok) throw new Error((await res.json()).detail || 'Agent failed');
+                const data = await res.json();
+                loader.classList.add('hidden');
+                renderIssues(data.ranked_matches || []);
+                lastLearningResources = data.learning_resources || [];
+                renderLearning(data.learning_gaps || [], lastLearningResources);
+            } catch (err) {
+                loader.classList.add('hidden');
+                grid.innerHTML = `<div class="text-center py-8 bg-rose-950/20 border border-rose-900/30 rounded-2xl text-rose-300 text-sm">${err.message}</div>`;
+            }
+        }
+
         async function fetchRecommendations() {
             const bio = document.getElementById('profileBio').value.trim();
             const lang = document.getElementById('languageFilter').value.trim();
             const grid = document.getElementById('recommendationsGrid');
             const loader = document.getElementById('loader');
-            const counter = document.getElementById('issueCount');
 
-            if (!bio) {
-                alert('Please provide a short developer bio profile first to compute recommendations.');
+            if (!authToken && !bio) {
+                alert('Enter a bio or login with GitHub for automatic profile analysis.');
                 return;
             }
 
             grid.innerHTML = '';
             loader.classList.remove('hidden');
+            showTab('recommendations');
 
             try {
-                let url = `http://127.0.0.1:8000/api/recommendations?profile_bio=${encodeURIComponent(bio)}`;
-                if (lang) {
-                    url += `&language=${encodeURIComponent(lang)}`;
-                }
+                let url = `${API}/api/v1/recommendations/issues?`;
+                if (bio) url += `profile_bio=${encodeURIComponent(bio)}&`;
+                if (lang) url += `language=${encodeURIComponent(lang)}`;
 
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Backend Engine connection fault.');
-                
-                const data = await response.json();
-                const issues = data.recommendations || [];
-
+                const res = await fetch(url, { headers: authHeaders() });
+                if (!res.ok) throw new Error('Failed to fetch recommendations');
+                const data = await res.json();
                 loader.classList.add('hidden');
-                counter.innerText = `${issues.length} Issues Ranked`;
-
-                if (issues.length === 0) {
-                    grid.innerHTML = `
-                        <div class="text-center py-12 card-navy border border-slate-800 rounded-2xl text-slate-400">
-                            No issues matching those filter criteria found. Try expanding your search bio.
-                        </div>`;
-                    return;
-                }
-
-                grid.innerHTML = issues.map(issue => {
-                    let barColor = 'bg-emerald-500';
-                    if (issue.match_score < 15) barColor = 'bg-amber-500';
-                    if (issue.match_score < 5) barColor = 'bg-slate-600';
-
-                    return `
-                        <div class="card-navy border border-slate-800 rounded-2xl p-6 transition-all duration-300 hover:translate-x-1 hover:border-slate-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                            <div class="space-y-2 flex-1">
-                                <div class="flex flex-wrap gap-2 items-center">
-                                    ${issue.labels ? issue.labels.map(l => `<span class="text-[10px] uppercase font-bold tracking-wider bg-slate-900 border border-slate-700 text-slate-300 px-2 py-0.5 rounded">${l}</span>`).join('') : ''}
-                                </div>
-                                <h4 class="text-lg font-bold text-white tracking-tight">${issue.title}</h4>
-                                <p class="text-slate-400 text-sm max-w-xl line-clamp-2">${issue.description || 'No issue description provided.'}</p>
-                            </div>
-                            
-                            <div class="w-full md:w-44 bg-slate-900/50 border border-slate-800 p-4 rounded-xl flex flex-col items-center justify-center text-center shrink-0">
-                                <span class="text-2xl font-black text-white">${issue.match_score}%</span>
-                                <span class="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-2">Match Score</span>
-                                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                    <div class="${barColor} h-full" style="width: ${Math.min(issue.match_score, 100)}%"></div>
-                                </div>
-                                <a href="${issue.html_url}" target="_blank" class="mt-3 inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 font-semibold transition-colors group">
-                                    View on GitHub 
-                                    <span class="transform transition-transform group-hover:translate-x-0.5">↗</span>
-                                </a>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
+                renderIssues(data.recommendations || []);
             } catch (err) {
                 loader.classList.add('hidden');
-                grid.innerHTML = `
-                    <div class="text-center py-12 bg-rose-950/20 border border-rose-900/50 rounded-2xl text-rose-300 text-sm font-mono">
-                        Error linking to backend network engine: ${err.message}<br>Make sure uvicorn is running on port 8000.
-                    </div>`;
+                grid.innerHTML = `<div class="text-center py-8 bg-rose-950/20 border border-rose-900/30 rounded-2xl text-rose-300 text-sm">${err.message}</div>`;
             }
+        }
+
+        function renderIssues(issues) {
+            currentIssues = issues;
+            const grid = document.getElementById('recommendationsGrid');
+            const counter = document.getElementById('issueCount');
+            counter.textContent = `${issues.length} issues ranked`;
+
+            if (!issues.length) {
+                grid.innerHTML = `<div class="text-center py-12 card-navy border border-slate-800 rounded-2xl text-slate-400 text-sm">No matches found.</div>`;
+                return;
+            }
+
+            grid.innerHTML = issues.map((issue, index) => {
+                const labels = Array.isArray(issue.labels) ? issue.labels : (issue.labels || '').split(',').filter(Boolean);
+                const diffClass = `difficulty-${issue.difficulty || 'medium'}`;
+                const barColor = issue.match_score >= 50 ? 'bg-emerald-500' : issue.match_score >= 25 ? 'bg-amber-500' : 'bg-slate-600';
+
+                return `
+                <div class="card-navy border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all">
+                    <div class="flex flex-col lg:flex-row gap-4">
+                        <div class="flex-1 space-y-2">
+                            <div class="flex flex-wrap gap-1.5 items-center">
+                                ${labels.map(l => `<span class="text-[9px] uppercase font-bold bg-slate-900 border border-slate-700 text-slate-400 px-2 py-0.5 rounded">${l.trim()}</span>`).join('')}
+                                <span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded ${diffClass}">${issue.difficulty || 'medium'}</span>
+                                ${issue.repo_name ? `<span class="text-[9px] text-slate-500 font-mono">${issue.repo_name}</span>` : ''}
+                            </div>
+                            <h4 class="text-base font-bold text-white">${issue.title}</h4>
+                            <p class="text-slate-400 text-xs line-clamp-2">${issue.description || ''}</p>
+                            ${issue.explanation ? `<p class="text-sky-300/80 text-xs italic border-l-2 border-sky-500/30 pl-3 mt-2">${issue.explanation}</p>` : ''}
+                        </div>
+                        <div class="w-full lg:w-44 bg-slate-900/50 border border-slate-800 p-4 rounded-xl flex flex-col items-center shrink-0">
+                            <span class="text-2xl font-black text-sky-400">${issue.match_score}%</span>
+                            <span class="text-[9px] text-slate-400 font-mono uppercase mb-2">Match Score</span>
+                            <div class="w-full bg-slate-800 h-1 rounded-full overflow-hidden mb-3">
+                                <div class="${barColor} h-full" style="width: ${Math.max(issue.match_score, 2)}%"></div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="bookmarkIssueByIndex(${index})" class="text-[10px] bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2 py-1 rounded-md cursor-pointer">Save</button>
+                                <a href="${issue.html_url}" target="_blank" class="text-[10px] text-sky-400 hover:text-sky-300 font-semibold">Open ↗</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderLearning(gaps, resources) {
+            const grid = document.getElementById('learningGrid');
+            if (!gaps.length && !resources.length) {
+                grid.innerHTML = `<div class="card-navy border border-dashed border-slate-800 rounded-xl p-6 text-slate-500 text-sm text-center">No learning gaps detected yet.</div>`;
+                return;
+            }
+            grid.innerHTML = resources.map(r => `
+                <div class="card-navy border border-slate-800 rounded-xl p-4 flex justify-between items-center">
+                    <div>
+                        <span class="text-[10px] uppercase text-amber-400 font-bold">Gap: ${r.skill}</span>
+                        <p class="text-sm font-semibold mt-1">${r.resource_title}</p>
+                    </div>
+                    <a href="${r.resource_url}" target="_blank" class="text-xs text-sky-400 hover:underline shrink-0 ml-4">Learn ↗</a>
+                </div>
+            `).join('');
+        }
+
+        function bookmarkIssueByIndex(index) {
+            const issue = currentIssues[index];
+            if (issue) bookmarkIssue(issue);
+        }
+
+        async function bookmarkIssue(issue) {
+            const labels = Array.isArray(issue.labels) ? issue.labels.join(',') : (issue.labels || '');
+            const payload = {
+                github_issue_id: Number(issue.id),
+                title: String(issue.title || '').slice(0, 500),
+                description: String(issue.description || '').slice(0, 2000),
+                labels: String(labels).slice(0, 500),
+                html_url: issue.html_url || '#',
+                match_score: issue.match_score ?? null,
+                difficulty: issue.difficulty || null,
+            };
+            try {
+                const res = await fetch(`${API}/api/v1/bookmarks`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify(payload),
+                });
+                let data = {};
+                try { data = await res.json(); } catch { /* non-json */ }
+                if (!res.ok) {
+                    alert(data.detail || `Save failed (${res.status})`);
+                    return;
+                }
+                alert('Issue saved to bookmarks!');
+                fetchBookmarks();
+            } catch (err) {
+                alert('Could not reach server. Is the backend running on port 8000?');
+            }
+        }
+
+        async function fetchBookmarks() {
+            const deck = document.getElementById('bookmarksDeck');
+            const counter = document.getElementById('bookmarkCount');
+            try {
+                const res = await fetch(`${API}/api/v1/bookmarks`, { headers: authHeaders() });
+                const data = await res.json();
+                const bookmarks = data.bookmarked_issues || [];
+                counter.textContent = `${bookmarks.length} saved`;
+                if (!bookmarks.length) {
+                    deck.innerHTML = `<div class="text-center py-12 border border-dashed border-slate-800 rounded-2xl text-slate-600 text-xs">No bookmarks yet.</div>`;
+                    return;
+                }
+                deck.innerHTML = bookmarks.map(item => `
+                    <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl space-y-2">
+                        <div class="flex justify-between">
+                            <h4 class="text-sm font-bold text-slate-200 truncate flex-1">${item.title}</h4>
+                            ${item.difficulty ? `<span class="text-[9px] uppercase px-2 py-0.5 rounded difficulty-${item.difficulty} ml-2">${item.difficulty}</span>` : ''}
+                        </div>
+                        <p class="text-slate-400 text-[11px] line-clamp-2">${item.description || ''}</p>
+                        <div class="flex justify-between items-center text-[11px]">
+                            ${item.match_score ? `<span class="text-sky-400 font-mono">${item.match_score}% match</span>` : '<span></span>'}
+                            <a href="${item.html_url}" target="_blank" class="text-sky-400 hover:underline">Open ↗</a>
+                        </div>
+                    </div>`).join('');
+            } catch {
+                deck.innerHTML = `<div class="text-center py-4 text-rose-400 text-xs">Failed to load bookmarks.</div>`;
+            }
+        }
+
+        async function submitPRReview() {
+            if (!authToken) { alert('Login required for PR review'); return; }
+            const title = document.getElementById('prIssueTitle').value.trim();
+            const diff = document.getElementById('prDiff').value.trim();
+            if (!title || !diff) { alert('Enter issue title and diff'); return; }
+
+            const feedbackEl = document.getElementById('prFeedback');
+            feedbackEl.classList.remove('hidden');
+            feedbackEl.textContent = 'Reviewing...';
+
+            try {
+                const res = await fetch(`${API}/api/v1/agents/pr-review`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ issue_title: title, diff_text: diff }),
+                });
+                const data = await res.json();
+                feedbackEl.textContent = data.feedback || 'No feedback returned.';
+            } catch (err) {
+                feedbackEl.textContent = err.message;
+            }
+        }
+
+        async function loadAnalytics() {
+            if (!authToken) return;
+            const el = document.getElementById('analyticsContent');
+            try {
+                const res = await fetch(`${API}/api/v1/analytics/dashboard`, { headers: authHeaders() });
+                if (!res.ok) return;
+                const data = await res.json();
+                el.innerHTML = `
+                    <div class="card-navy border border-slate-800 rounded-xl p-5 text-center">
+                        <div class="text-3xl font-black text-sky-400">${data.stats.bookmarks}</div>
+                        <div class="text-xs text-slate-500 uppercase mt-1">Bookmarks</div>
+                    </div>
+                    <div class="card-navy border border-slate-800 rounded-xl p-5 text-center">
+                        <div class="text-3xl font-black text-violet-400">${data.stats.agent_runs}</div>
+                        <div class="text-xs text-slate-500 uppercase mt-1">Agent Runs</div>
+                    </div>
+                    <div class="card-navy border border-slate-800 rounded-xl p-5 text-center">
+                        <div class="text-lg font-bold text-emerald-400 capitalize">${data.stats.experience_level}</div>
+                        <div class="text-xs text-slate-500 uppercase mt-1">Experience</div>
+                    </div>`;
+            } catch { /* optional */ }
+        }
+
+        function showTab(name) {
+            ['recommendations', 'bookmarks', 'learning', 'pr-review', 'analytics'].forEach(t => {
+                document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== name);
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === name) {
+                    btn.className = 'tab-btn text-sm px-4 py-2 rounded-lg bg-sky-600/20 text-sky-400 font-semibold cursor-pointer';
+                } else {
+                    btn.className = 'tab-btn text-sm px-4 py-2 rounded-lg text-slate-400 hover:bg-slate-800 cursor-pointer';
+                }
+            });
+            if (name === 'bookmarks') fetchBookmarks();
+            if (name === 'analytics') loadAnalytics();
         }
     </script>
 </body>
 </html>
++
