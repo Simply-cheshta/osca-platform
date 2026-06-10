@@ -1,6 +1,8 @@
-from fastapi import FastAPI, Header, HTTPException, Depends
+from fastapi import FastAPI, Header, HTTPException, Depends, Request
+from fastapi.responses import JSONResponse
 from typing import Optional
 from sqlalchemy.orm import Session
+
 
 from app.core.database import engine, Base, get_db
 import app.models.issue as issue_model
@@ -38,6 +40,28 @@ MOCK_GITHUB_ISSUES = [
 
 app = FastAPI(title="OSCA Platform API")
 vector_service = VectorService()
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Globally intercepts unhandled operational exceptions across all endpoints
+    and wraps them into a clean, safe JSON payload response.
+    """
+    if isinstance(exc, HTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": "Client Error", "detail": exc.detail}
+        )
+
+    return JSONResponse(
+      status_code=500,
+      content={
+          "error": "Internal Server Error",
+          "detail": "An unexpected error occurred within the platform matching systems.",
+          "system_message": str(exc)
+      }
+  )
+
 
 @app.get("/")
 def read_root():
