@@ -1,20 +1,26 @@
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 from app.core.config import settings
 
 
 class VectorService:
     def __init__(self):
-        self.model = SentenceTransformer(settings.EMBEDDING_MODEL)
+        self._model = None
+
+    def _get_model(self):
+        if self._model is None:
+            from sentence_transformers import SentenceTransformer
+
+            self._model = SentenceTransformer(settings.EMBEDDING_MODEL)
+        return self._model
 
     def get_embedding(self, text: str) -> np.ndarray:
-        return self.model.encode(text or "", convert_to_numpy=True)
+        return self._get_model().encode(text or "", convert_to_numpy=True)
 
     def batch_embed(self, texts: list[str]) -> np.ndarray:
         if not texts:
             return np.array([])
-        return self.model.encode(texts, convert_to_numpy=True)
+        return self._get_model().encode(texts, convert_to_numpy=True)
 
     def calculate_similarity(self, bio_embedding: np.ndarray, issue_embedding: np.ndarray) -> float:
         dot_product = np.dot(bio_embedding, issue_embedding)
